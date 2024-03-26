@@ -1,0 +1,10 @@
+node_modules
+.next
+.vscode
+.gitignore
+README.md
+.dockerignore
+.git
+.env
+docker-compose.yml
+nginx/

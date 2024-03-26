@@ -1,0 +1,9 @@
+@keyframes arrow-move {
+    0% { transform: translateX(0); }
+    100% { transform: translateX(10px); }
+  }
+  
+  .arrow-animation {
+    animation: arrow-move 1s linear infinite;
+  }
+  

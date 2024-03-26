@@ -1,0 +1,32 @@
+version: '3'
+services:
+  nextjs:
+    build: ./
+    ports:
+      - "3000:3000"  # Map host port 80 to container port 3000
+  caddy:
+    image: caddy:2.7.6
+    restart: unless-stopped
+    cap_add:
+      - net_admin
+    ports:
+      - "80:80"     # HTTP
+      - "443:443"   # HTTPS
+      - "443:443/udp"  # QUIC
+    volumes:
+      # Mount the Caddyfile from the host to the container
+      - type: bind
+        source: ./caddy/caddyfile
+        target: /etc/caddy/caddyfile
+      # Mount site data from the host to the container
+      - type: bind
+        source: ./caddy/site
+        target: /srv
+      # Mount data directory from the host to the container
+      - type: bind
+        source: ./caddy/data
+        target: /data
+      # Mount config directory from the host to the container
+      - type: bind
+        source: ./caddy/config
+        target: /config
