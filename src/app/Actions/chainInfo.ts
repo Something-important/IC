@@ -2,7 +2,7 @@ import {  chains   } from 'chain-registry';
 
 
 export default function chainInfo(chain: string) { 
-    const chainInfo =  chains.find(({chain_name})=>chain_name===chain); 
+    const chainInfo =  chains.find(({pretty_name})=>pretty_name===chain); 
     // console.log(chainInfo)
     if (!chainInfo) {
         // handle the case when assetList is undefined

@@ -2,10 +2,10 @@ import { assets, chains, ibc } from "chain-registry";
 import chainInfo from "../Actions/chainInfo";
 export const options: { value: string; label: string; logoUrl: string | undefined }[] = [
 
-  ...chains.map(({ chain_name}) => ({
+  ...chains.map(({ pretty_name,chain_name}) => ({
     value: chain_name,
-    label: chain_name,
-    logoUrl: chainInfo(chain_name),
+    label: pretty_name,
+    logoUrl: chainInfo(pretty_name),
   })),
   
 ].filter(chain => !chain.value.toLowerCase().includes("testnet" ) && !chain.value.toLowerCase().includes("devnet"));
