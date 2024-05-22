@@ -96,7 +96,7 @@ export  function getExponent(tokendenom: string, chain: string) {
     // handle the case when filteredArray is empty
   } else {
     if (!filteredArray[0].denom_units) {
-      // handle the case when filteredArray[0].traces is undefined
+      return 1;
     } else {
       const decimalPlacesToMove: number = filteredArray[0].denom_units[1].exponent; 
       const TokenDecimals = 1 * Math.pow(10, decimalPlacesToMove);

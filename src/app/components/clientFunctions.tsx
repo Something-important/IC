@@ -29,6 +29,11 @@ export function getAddress(chainName:string,address:string) {
     var newAddress = toBech32(prefix, nakedaddress);
     return newAddress
   } 
+ 
+ export function getPrefix(Address:string) {
+  let prefix = fromBech32(Address).prefix;
+  return prefix
+ } 
 
 export function minFee(chain:string){
   var minFee = chains.find(

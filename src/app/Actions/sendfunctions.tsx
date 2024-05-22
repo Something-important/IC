@@ -1,4 +1,5 @@
- import {
+"use client";
+import {
     EncodeObject,
     Coin,
     MsgTransfer,
@@ -6,7 +7,9 @@
   } from "./interfaces"
 export type CosmosClientType = "stargate" | "cosmwasm";
 export type SignType = "amino" | "direct";
-import { determinepaths } from "./paths";
+import { minFee, getExponent } from "../components/clientFunctions";
+
+
 
 
 export async function Sendibc(
@@ -58,7 +61,7 @@ export async function Sendibc(
     };
 
     const fee: StdFee = { amount: [feevalue], gas: maxGas.toFixed(0) };
-    const memo: string = "trials";
+    const memo: string = "Free IBC";
     const client: CosmosClientType | undefined = "stargate";
 
     return { msg, fee, memo, client };
@@ -66,36 +69,35 @@ export async function Sendibc(
 
 
 // normal transaction
-export async function Send(
-  senderAddress: string,
-  receiveraddress: string,
-  amount: number,
+export async function Send(recieverAddress: string,
+  amount: string,
   tokenindenom: string,
+  senderAddress: string,
+  chain: string,
   simulatedClient: any) {
-    console.log("sender address normal: " + senderAddress);
-    console.log("receiver address: normal " + receiveraddress);
+    const fees = minFee(chain);
 
   const messege: EncodeObject = {
-    typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-    value: {
-      fromAddress: senderAddress,
-      toAddress: senderAddress,
-      amount: [{
-        denom: "uatom",
-        amount: amount,
-      }],
-    }
+      typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+      value: {
+          fromAddress: senderAddress,
+          toAddress: recieverAddress,
+          amount: [{
+              denom: tokenindenom,
+              amount: amount,
+          }],
+      }
   }
   const msg: EncodeObject[] = [messege];
   const simulatedGas = await simulatedClient.simulate(senderAddress, msg, "")
-  const gasPrice = Math.ceil(Number((simulatedGas * 1.7) * 0.01)).toFixed(0);
+  const gasPrice = Math.ceil(Number((simulatedGas * 1.7) * fees.minFee)).toFixed(0);
   const maxGas = simulatedGas * 1.7
 
   const fee: StdFee = {
-    amount: [{
-      denom: "uatom",
-      amount: gasPrice,
-    }], gas: maxGas.toFixed(0)
+      amount: [{
+          denom: fees.minFeeToken,
+          amount: gasPrice,
+      }], gas: maxGas.toFixed(0)
   };
 
   const client: CosmosClientType | undefined = "stargate";
@@ -103,4 +105,3 @@ export async function Send(
   return { msg, fee, memo, client }
 
 }
-

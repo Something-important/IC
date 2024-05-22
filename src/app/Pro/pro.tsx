@@ -18,6 +18,7 @@ import { chainInfo, getExponent, getDenom } from "../Actions/denoms";
 import Select, { ClassNamesConfig, OptionProps } from "react-select";
 import { determinepaths } from "../Actions/paths";
 import { assets, chains, ibc } from "chain-registry";
+import { getPrefix } from "../components/clientFunctions";
 
 interface OptionType {
   value: string;
@@ -27,7 +28,7 @@ interface OptionType {
 import Image from "next/image";
 import { options } from "../components/chains";
 import "@interchain-ui/react/styles";
-export default function Main() {
+export default function Pro() {
   const [chain, setChain] = useState<string>("cosmoshub");
   const [destinationChain, setDestination] = useState("");
   const [toAddress, setToAddress] = useState("");
@@ -55,7 +56,7 @@ export default function Main() {
   };
   // handle wallet connection
   function connectWallet() {
-    if(!isWalletConnected){
+    if (!isWalletConnected) {
       connect();
     }
   }
@@ -89,52 +90,83 @@ export default function Main() {
       return null; // or return a default value
     }
   };
+  //  display the amount of the selected token in the wallet
+  const renderFunds = (value: string, chain: string) => {
+    const selectedEntry = data.find((entry) => entry.denom.includes(value));
+    if (selectedEntry) {
+      const returnedamount = (Number(selectedEntry.amount) / Number(getExponent(value, chain))).toFixed(3);
+      return returnedamount;
+    } else {
+      // handle the case when SelectedToken is not found
+      return null; // or return a default value
+    }
+  }
   //sign and broadcast
   async function inciatransaction() {
     console.log("started inciatransaction");
-    if (address) {
-      if (chain === destinationChain) {
-        alert("are you sure you want to send the token back to your own wallet");
-      }
-      else{
-        // create message
-      try {
-        var minFee = chains.find(
-          ({ chain_name }) => chain_name === chain
-        )?.fees?.fee_tokens[0].low_gas_price;
-        var feeDenom = chains.find(
-          ({ chain_name }) => chain_name === chain
-        )?.fees?.fee_tokens[0].denom;
-        const simulateClient = await getSigningStargateClient();
-        console.log("simulateClient outside send ibs",simulateClient)
-        const SendIBCResponse = await Sendibc(
-          chain,
-          "",
-          address,
-          toAddress,
-          amount,
-          SelectedToken,
-          channel_id,
-          feeDenom,
-          minFee,
-          simulateClient
-        );
-        console.log("SendIBCResponse", SendIBCResponse);
+    if (address && toAddress && SelectedToken && amount) {
+      let chainPrefix = getPrefix(address);
+      let destinationChainPrefix = getPrefix(toAddress);
+      if (chainPrefix === destinationChainPrefix) {
+        let finalAmount: string = (Number((amount) * getExponent(SelectedToken, chain))).toString();
+            console.log("amount", finalAmount)
+            console.log('inside normal send');
+            connectWallet();
+            const simulateClient = await getSigningStargateClient();
+            const sendResponse = await Send(toAddress, finalAmount, SelectedToken, address, chain, simulateClient);
 
-        const response = await signAndBroadcast(
-          SendIBCResponse.msg,
-          SendIBCResponse.fee,
-          SendIBCResponse.memo,
-          SendIBCResponse.client
-        );
-        // show transaction hash on window
-         alert(response.transactionHash);
-      
-        return JSON.stringify("success", null, 2);
-      } catch (error: any) {
-        console.error(error.message);
+
+            const response = await signAndBroadcast(sendResponse.msg, sendResponse.fee, sendResponse.memo, sendResponse.client);
+            if (!response) {
+                console.log("step 3")
+                alert("Transaction Failed please try again");
+            }
+            if (response) {
+                alert(response.transactionHash);
+                if (response.code === 0) {
+                    alert("Transaction Successful");
+                }
+             }
       }
-    }
+      else {
+        // create message
+        try {
+          var minFee = chains.find(
+            ({ chain_name }) => chain_name === chain
+          )?.fees?.fee_tokens[0].low_gas_price;
+          var feeDenom = chains.find(
+            ({ chain_name }) => chain_name === chain
+          )?.fees?.fee_tokens[0].denom;
+          const simulateClient = await getSigningStargateClient();
+          console.log("simulateClient outside send ibs", simulateClient)
+          const SendIBCResponse = await Sendibc(
+            chain,
+            "",
+            address,
+            toAddress,
+            amount,
+            SelectedToken,
+            channel_id,
+            feeDenom,
+            minFee,
+            simulateClient
+          );
+          console.log("SendIBCResponse", SendIBCResponse);
+
+          const response = await signAndBroadcast(
+            SendIBCResponse.msg,
+            SendIBCResponse.fee,
+            SendIBCResponse.memo,
+            SendIBCResponse.client
+          );
+          // show transaction hash on window
+          alert(response.transactionHash);
+
+          return JSON.stringify("success", null, 2);
+        } catch (error: any) {
+          console.error(error.message);
+        }
+      }
     }
   }
 
@@ -149,141 +181,128 @@ export default function Main() {
         {/* inner division top left*/}
         <div
           id="innerDiv1"
-          className="flex flex-col items-center justify-center  w-full rounded-2xl bg-transparent "
+          className="flex flex-col items-center justify-center w-full rounded-2xl bg-transparent"
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100vh' }}
         >
-          <h1
-            className="flex-auto font-bold text-white"
-            style={{ marginTop: "calc(1/6 * 100%)" }}
-          >
-            Origin Chain
-          </h1>
-          <div style={{ width: "200px" }}>
-            <Select
-              placeholder="Cosmos Hub" // Placeholder value here
-              options={options} 
-              
-
-              
-              formatOptionLabel={(option) => (
-                <div className=" flex flex-row">
-                  <div>{option.label}</div>
-                  <div className="ml-2">
-                    <img
-                      src={option.logoUrl}
-                      alt={option.label}
-                      height="20"
-                      width="20"
-                    />
+          <div>
+            <h1
+              className="flex-auto font-bold text-white"
+              style={{ marginTop: 'calc(1/6 * 100%)' }}
+            >
+              Origin Chain
+            </h1>
+            <div style={{ width: "200px" }}>
+              <Select
+                placeholder="Cosmos Hub"
+                options={options}
+                formatOptionLabel={(option) => (
+                  <div className="flex flex-row">
+                    <div>{option.label}</div>
+                    <div className="ml-2">
+                      <img
+                        src={option.logoUrl}
+                        alt={option.label}
+                        height="20"
+                        width="20"
+                      />
+                    </div>
+                  </div>
+                )}
+                onChange={handleOriginChange}
+                styles={{
+                  control: (provided) => ({
+                    ...provided,
+                    backgroundColor: "white",
+                    borderColor: "black",
+                    borderRadius: "10px",
+                  }),
+                }}
+              />
+            </div>
+            <div style={{ flex: "calc(1/2 * 100%)" }}></div>
+            <div className="flex items-center rounded-10px">
+              {chain ? (
+                <div>
+                  <div className="flex justify-center">
+                    <h1 className="text-2xl font-bold text-white">
+                      {address?.slice(0, 4)}...{address?.slice(-5)}
+                    </h1>
                   </div>
                 </div>
-              )}
-              onChange={handleOriginChange}
-              styles={{
-                control: (provided) => ({
-                  ...provided,
-                  backgroundColor: "white",
-                  borderColor: "black",
-                  borderRadius: "10px",
-                }),
-              }}
-            />
+              ) : (
+                <h1></h1>
+              )}{" "}
+            </div>
           </div>
-          <div style={{ flex: "calc(1/2 * 100%)" }}></div>
-          <div className="flex items-center rounded-10px">
-            {chain ? (
-              <div>
-                <div className="flex justify-center">
-                  <h1 className="text-2xl font-bold text-white">
-                    {address?.slice(0, 4)}...{address?.slice(-5)}
-                  </h1>
-                </div>
-              </div>
+          <div>
+            {data.length === 0 ? (
+              <p className="text-white">Fetching assets...</p>
             ) : (
-              <h1></h1>
-            )}{" "}
+              <div style={{ width: "200px" }}>
+                <h1 className="text-2xl font-bold text-white mb-4">Asset in your wallet</h1>
+                <Select
+                  placeholder="Select asset"
+                  options={data.map((entry) => ({
+                    label: getDenom(entry.denom, chain)?.symbol,
+                    value: entry.denom,
+                  }))}
+                  formatOptionLabel={(option) => (
+                    <div className="w-200px flex flex-row">
+                      <div className="ml-2 flex flex-row">
+                        <img
+                          src={getDenom(option?.value, chain)?.svg}
+                          height="20"
+                          width="20"
+                        />
+                        <div className="ml-2">{renderFunds(option?.value, chain)}</div>
+                        <div className=""><h1 contentEditable style={{ overflowWrap: "break-word" }}>{option?.value}</h1> </div>
+                      </div>
+                    </div>
+                  )}
+                  onChange={(option) => option && setSelectedToken(option.value)}
+                  styles={{
+                    control: (provided) => ({
+                      ...provided,
+                      backgroundColor: "white",
+                      borderColor: "black",
+                      borderRadius: "10px",
+                    }),
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
         {/* inner division top left end */}
         {/* inner division bottom left */}
         {/* Divison for assest denom */}
-      <div className="flex flex-col items-center justify-center  bg-transparent">
-      <h1 className="flex-auto font-bold text-white"> 
-          Assest Denom
-      </h1>
-          <div className="flex flex-col items-center p-1">
-            <input
-              className="flex flex-col items-center  justify-center  w-200px rounded-2xl  "
-              type="string"
-              placeholder="Assest Denom"
-              onChange={(e) => setSelectedToken(e.target.value)}
-              style={{ width: "200px" ,height:"40px" ,textAlign:"center" }}
-            />
-          </div>
-      </div>
-        <div
-  id="innerDiv3"
-  className="flex flex-col items-center justify-center h-2/3 w-full rounded-2xl p-5"
->
-  <h1 className="text-2xl font-bold text-white mb-4">Asset in your wallet</h1>
-  {data.length === 0 ? (
-    <p className="text-white">Fetching assets...</p>
-  ) : ( 
-    <div style={{ width: "200px" }}>
-    <Select 
-    
-      placeholder ="Select asset" // Placeholder value here
-      style={{ width: "200px" }}
-      options={data.map((entry) => ({
-        label: getDenom(entry.denom, chain)?.symbol,
-        value: entry.denom,
-      }))}
-      formatOptionLabel={(option) => (
-        <div className="w-200px flex flex-row">
-          <div>{option.label}</div>
-          <div className="ml-2">
-            <img
-              src={getDenom(option?.value, chain)?.svg}
-              height="20"
-              width="20"
-              
-            />
+        <div className="flex flex-col items-center justify-center  bg-transparent">
+          <div
+            id="innerDiv3"
+            className="flex flex-col items-center justify-center h-2/3 w-full rounded-2xl p-5"
+          >
+            {SelectedToken ? (
+              <div className="width-200px items-center mt-4">
+                <input
+                  className="text-indigo-300 width-200px rounded-2xl "
+                  type="number"
+                  placeholder={Number(renderData()).toFixed(3)}
+                  min={0.0}
+                  name={"amount"}
+                  step="0.001"
+                  onChange={(e) => setAmount(parseFloat(e.target.value))}
+                  style={{ width: "200px" }}
+                />
+              </div>
+            ) : null}
+            <button
+              className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mt-4"
+              onClick={() => inciatransaction()}
+            >
+              Send
+            </button>
           </div>
         </div>
-      )}
-      onChange={(option) => option && setSelectedToken(option.value)}
-      styles={{
-        control: (provided) => ({
-          ...provided,
-          backgroundColor: "white",
-          borderColor: "black",
-          borderRadius: "10px",
-        }),
-      }}
-    />
-    </div>
-  )}
-
-  {SelectedToken ? (
-    <div className="width-200px items-center mt-4">
-      <input
-        className="text-indigo-300 width-200px rounded-2xl "
-        type="number"
-        placeholder={Number(renderData()).toFixed(3)}
-        min={0.0}
-        name={"amount"}
-        step="0.001"
-        onChange={(e) => setAmount(parseFloat(e.target.value))}
-        style={{ width: "200px" }}
-      />
-    </div>
-  ) : null}   
-  <button
-    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mt-4"
-    onClick={() => inciatransaction()}
-  >
-    Send
-  </button>
-</div>
 
         {/* inner division bottom left end */}
       </div>
@@ -291,41 +310,42 @@ export default function Main() {
       {/* right division */}
       <div className="flex flex-col items-center justify-center w-1/2  rounded-2xl">
         {/* Division for destination */}
-          <div
-             id="innerDiv2"
-             className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl  mb-3 "
-             >
-            <h1
-              className="flex-auto font-bold text-white"
-              style={{ marginTop: "calc(1/6 * 100%)" }}
-              >
-              Destination address
-            </h1>
-            <div>
-              <input
-              className="flex flex-col items-center  justify-center rounded-2xl "
+        <div
+          id="innerDiv2"
+          className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl  mb-3 "
+        >
+          <h1
+            className="flex-auto font-bold text-white"
+            style={{ marginTop: "calc(1/6 * 100%)" }}
+          >
+            Destination address
+          </h1>
+          <div style={{ display: "flex", justifyContent: "center" }}>
+            <input
+              className="rounded-2xl"
               type="string"
               placeholder="Destination address"
               onChange={(e) => setToAddress(e.target.value)}
-              style={{ width: "200px" ,height:"40px" ,textAlign:"center" }}
+              style={{ width: "200px", height: "40px", textAlign: "center" }}
             />
           </div>
-          <div className="flex flex-col  test-2xl font-bold text-white items-center justify-center h-2/3 w-full rounded-2xl p-5 ">
-            <h1 className="flex-auto  test-2xl font-bold text-white ">
-              Channel ID</h1>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "66%", width: "100%", padding: "5%" }}>
+            <h1 className="flex-auto font-bold text-white">
+              Channel ID
+            </h1>
             <input
-              className="flex flex-col items-center p-1  justify-center rounded-2xl  p-3"
+              className="rounded-2xl p-3"
               type="string"
               placeholder="Channel ID"
               onChange={(e) => setchannel_id(e.target.value)}
-              style={{ width: "200px" ,height:"40px"  ,textAlign:"center"}} 
-              />
+              style={{ width: "200px", height: "40px", textAlign: "center" }}
+            />
           </div>
-          <div style={{ flex: "calc(1/2 * 100%)" }}></div>
-          <div className="flex items-center rounded-10px">
+          <div style={{ flex: "50%" }}></div>
+          <div className="flex items-center rounded-10px" style={{ display: "flex", justifyContent: "center" }}>
             {destinationChain ? (
               <div>
-                <div className="flex justify-center">
+                <div style={{ display: "flex", justifyContent: "center" }}>
                   <img
                     src={chainInfo(destinationChain)?.logo_URIs?.svg}
                     className="h-10 w-10 inline"
@@ -341,13 +361,24 @@ export default function Main() {
         {/* inner division top right end */}
         {/* inner division bottom right */}
         <div
-  id="innerDiv4"
-  className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl overflow-hidden" // Tailwind classes
->
-  <div>
-   
-  </div>
-</div>
+          id="innerDiv4"
+          className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl overflow-hidden" // Tailwind classes
+        >
+          <div>
+            <h1 className="flex-auto font-bold text-white">
+              Assest Denom
+            </h1>
+            <div className="flex flex-col items-center p-1">
+              <input
+                className="flex flex-col items-center  justify-center  w-200px rounded-2xl  "
+                type="string"
+                placeholder={SelectedToken}
+                onChange={(e) => setSelectedToken(e.target.value)}
+                style={{ width: "200px", height: "40px", textAlign: "center" }}
+              />
+            </div>
+          </div>
+        </div>
 
         {/* inner division bottom right end */}
       </div>

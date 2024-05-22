@@ -1,4 +1,7 @@
 "use client";
+import '../css/globals.css';
+import '../css/style.css';
+// import 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css';
 // import '../../../Arrow.css'; // Import CSS file where you define your animations
 import { useChain } from "@cosmos-kit/react";
 import React, { useState, useEffect, useMemo } from "react";
@@ -15,31 +18,29 @@ import {
 } from "../Actions/interfaces";
 import { Sendibc, Send } from "../Actions/sendfunctions";
 import { chainInfo, getExponent, getDenom } from "../Actions/denoms";
-import Select, { ClassNamesConfig, OptionProps } from "react-select";
-import { determinepaths } from "../Actions/paths";
+import Select, { OptionProps } from "react-select";
+import { determinepaths } from "../Actions/pathsAdvanced";
 import { assets, chains, ibc } from "chain-registry";
-import {SigningStargateClient} from "@cosmjs/stargate";
-import {SigningCosmWasmClient} from "@cosmjs/cosmwasm-stargate";
-
+import { SigningStargateClient } from "@cosmjs/stargate";
 interface OptionType {
   value: string;
   label: string;
   logoUrl: string;
 }
-interface Transaction {
-  output: string;
-}
 import Image from "next/image";
 import { options } from "./chains";
+import { getAddress } from "./clientFunctions";
 import "@interchain-ui/react/styles";
-export default function Main() { 
+const Normal: React.FC = () => {
+  const [isNormal, setIsNormal] = useState(true);
   const [chain, setChain] = useState<string>("cosmoshub");
-  const [destinationChain, setDestination] = useState("");
   const [data, setData] = useState<DataItem[]>([]);
   const [SelectedToken, setSelectedToken] = useState("");
   const [amount, setAmount] = useState(0.0);
+  const [destinationChain, setDestination] = useState("");
+  const [destinationAddress, setDestinationAddress] = useState("");
   const [showPopover, setShowPopover] = useState(false);
-  const [outputArray, setOutputArray] = useState<({chainFrom:string; hash: string})[]>([]);
+  const [outputArray, setOutputArray] = useState<({ chainFrom: string; hash: string })[]>([]);
   const [paths, setPaths] = useState<({
     chainFrom: string;
     from: string;
@@ -52,9 +53,8 @@ export default function Main() {
     amountToTransfer: number;
     destinationChain?: undefined;
     channel_id?: undefined;
+    destinationAddress: string;
   })[]>([]);
-
-
   //   chain context
   const chainContext = useChain(chain);
   const {
@@ -65,101 +65,120 @@ export default function Main() {
     disconnect,
     getSigningStargateClient,
     getSigningCosmWasmClient,
-    signAndBroadcast,
+    signAndBroadcast
   } = chainContext;
+  function connectWallet() {
+    if (!isWalletConnected) {
+      connect();
+    }
+  }
   //   function that fetches data
   const fetchData = async () => {
     const response = await axios.get(`/api/bal/${address}`);
     setData(response.data);
   };
-  // handle wallet connection
-  function connectWallet() {
-    if(!isWalletConnected){
-      connect();
+  //Effect that fetches new data when address changes
+  useEffect(() => {
+    if (address) {
+      console.log("address change on origin change ", address);
+      fetchData();
     }
-  }
+  }, [address]);
+  //   address change on destination change
+  useEffect(() => {
+    if (address && destinationChain) {
+      let newAddress = getAddress(destinationChain, address);
+      setDestinationAddress(newAddress);
+    }
+  }, [address, destinationChain]);
   // setting the Selected chain
-  const handleOriginChange = (
-    newValue: { value: string; label: string } | null
-  ) => {
-    connectWallet();
+  function handleOriginChange(newValue: { value: string; label: string } | null) {
     if (newValue) {
       setChain(newValue.value);
-    }
-  };//Effect that fetches new data when address changes
-  useEffect(() => {
-      fetchData(); 
-  }, [address]);
-// function that fetches paths
-  function getPath() {
-    if(chain){
-    // search for assets on sspecific chain
-    let assetList = assets.find(({chain_name})=>chain_name===chain);
-    // search for asset info with specific denom identity
-    let filteredArray = assetList?.assets.filter(obj => obj.base === SelectedToken);
-    if(filteredArray && filteredArray?.length>0){
-    const paths = determinepaths(chain, destinationChain, SelectedToken, address, amount);
-    setPaths(paths);}
-    else{}
+      connectWallet();
     }
   }
-  // getting route
-  useEffect(() => {
-    if (address && chain && destinationChain && SelectedToken && amount) {
-      getPath();
+  // setting the destination address
+  function handleDestinationChange(newValue: { value: string; label: string } | null) {
+    if (newValue) {
+      setDestination(newValue.value);
     }
-  }, [address, chain, destinationChain, SelectedToken, amount]);
-
+  }
   //  display the amount of the selected token in the wallet
   const renderData = () => {
-    const selectedEntry = data.find((entry) =>
-      entry.denom.includes(SelectedToken)
-    );
+    const selectedEntry = data.find((entry) => entry.denom.includes(SelectedToken));
     if (selectedEntry) {
-      const returnedamount = (
-        Number(selectedEntry.amount) / Number(getExponent(SelectedToken, chain))
-      ).toFixed(3);
+      const returnedamount = (Number(selectedEntry.amount) / Number(getExponent(SelectedToken, chain))).toFixed(3);
       return returnedamount;
     } else {
       // handle the case when SelectedToken is not found
       return null; // or return a default value
     }
-  };
- 
-
-  // function that sends the token
-  async function sendToken() {
-    if (address) {
-      if (chain === destinationChain) {
-        alert("are you sure you want to send the token back to your own wallet");
-      }
-      else{
-        // create message
-        console.log("showing paths",paths)
-        let i=0
-        while (i<=paths.length){
-          const path = paths[i];
-          console.log("Addressbefore iniciating transaction",address)  
-                        
-          const response = await inciatransaction(path);
-          while(!response){await new Promise(resolve => setTimeout(resolve, 2000));};
-          if(response.code === 0 ){alert(response.transactionHash);}else {alert(response.msgResponses);};
-          setChain(paths[i].counterpartyChain || destinationChain);          
-          console.log("address after try catch",address)
-          await new Promise(resolve => setTimeout(resolve, 5000)); // 2-second delayle.log("chain after try catch",chain)
-          console.log("address and chain just before starting the new transaction",chain,address)
-          i++;
-        }
-      }
   }
-  } 
+
+  //  display the amount of the selected token in the wallet
+  const renderFunds = (value: string, chain: string) => {
+    const selectedEntry = data.find((entry) => entry.denom.includes(value));
+    if (selectedEntry) {
+      const returnedamount = (Number(selectedEntry.amount) / Number(getExponent(value, chain))).toFixed(3);
+      return returnedamount;
+    } else {
+      // handle the case when SelectedToken is not found
+      return null; // or return a default value
+    }
+  }
+  // function that fetches paths
+  function getPath() {
+    if (chain && address && amount && SelectedToken && destinationChain && destinationAddress) {
+      // search for assets on sspecific chain
+      let assetList = assets.find(({ chain_name }) => chain_name === chain);
+      // search for asset info with specific denom identity
+      let filteredArray = assetList?.assets.filter(obj => obj.base === SelectedToken);
+      if (filteredArray && filteredArray?.length > 0) {
+        const paths = determinepaths(chain, destinationChain, SelectedToken, address, destinationAddress, amount);
+        setPaths(paths);
+      }
+      else { }
+    }
+  }
+  // getting route
+  useEffect(() => {
+    if (address && chain && destinationChain && SelectedToken && amount && destinationAddress) {
+      getPath();
+    }
+  }, [address, chain, destinationChain, destinationAddress, SelectedToken, amount]);
   //sign and broadcast
   async function inciatransaction(path: any) {
-    console.log("started inciatransaction with path",path);
-    setChain(path.chainFrom)
-    await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delayle.log("chain after try catch",chain)
-    connectWallet();
-    const simulateClient = await getSigningStargateClient(); 
+    if (chain === destinationChain) {
+      try {
+        // create message
+        const simulateClient = await getSigningStargateClient();
+        const sendResponse = await Send(
+          address,
+          destinationAddress,
+          amount,
+          SelectedToken,
+          chain,
+          simulateClient
+        );
+        //  sign and broadcast message
+        const response = await signAndBroadcast(
+          sendResponse.msg,
+          sendResponse.fee,
+          sendResponse.memo,
+          sendResponse.client
+        );
+        // show transaction hash on window
+        alert(response.transactionHash);
+      } catch (error) {
+        console.error(error);
+      }
+    } else {
+      console.log("started inciatransaction with path", path);
+      setChain(path.chainFrom)
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delayle.log("chain after try catch",chain)
+      connectWallet();
+      const simulateClient = await getSigningStargateClient();
       try {
         const SendIBCResponse = await Sendibc(
           path.chainFrom,
@@ -173,7 +192,7 @@ export default function Main() {
           path.minFee,
           simulateClient
         );
-        const simulateClientFinal:SigningStargateClient = await getSigningStargateClient();
+        const simulateClientFinal: SigningStargateClient = await getSigningStargateClient();
         const response = await signAndBroadcast(
           SendIBCResponse.msg,
           SendIBCResponse.fee,
@@ -183,312 +202,225 @@ export default function Main() {
         // Update the output array state
         console.log(response);
         console.log(outputArray);
-        setOutputArray(prevArray => [...prevArray, {chainFrom: path.chainFrom, hash: response.transactionHash}]);
+        setOutputArray(prevArray => [...prevArray, { chainFrom: path.chainFrom, hash: response.transactionHash }]);
         // show transaction hash on window
-        console.log("output array",outputArray);
+        console.log("output array", outputArray);
+        setChain(path.counterpartyChain || destinationChain);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delayle.log("chain after try catch",chain)
         alert(response.transactionHash);
         // setChain(path.counterpartyChain || destinationChain);
       } catch (error: any) {
         console.error(error.message);
-      } 
+      }
     }
-    // filtering through the transaction hashes
-   function filterHash(chainFrom:string){
-     const filteredItem = outputArray.filter(obj => obj.chainFrom === chainFrom);
-     if (filteredItem[0]) {
+  }
+  // filtering through the transaction hashes
+  function filterHash(chainFrom: string) {
+    const filteredItem = outputArray.filter(obj => obj.chainFrom === chainFrom);
+    if (filteredItem[0]) {
       return filteredItem[0].hash; // Display the hash value for the specific chainFrom
     } else {
       console.log('ChainFrom not found');
     }
-   } 
- 
-  return (
-    // main division
-    <div
-      
-    >
-      {/* normal */}
-    <div className="parentDivision rounded-2xl flex flex-row bg-black"
-      style={{ width: "100%", height: "100%" }}>
-      {/* left division */}
-      <div className="flex flex-col w-1/2  h-full rounded-2xl">
-        {/* inner division top left*/}
-        <div
-          id="innerDiv1"
-          className="flex flex-col items-center justify-center  w-full rounded-2xl bg-transparent "
-        >
-          <h1
-            className="flex-auto font-bold text-white"
-            style={{ marginTop: "calc(1/6 * 100%)" }}
-          >
-            Origin Chain
-          </h1>
-          <div style={{ width: "200px" }}>
-            <Select
-              placeholder="Cosmos Hub" // Placeholder value here
-              options={options} 
-              
+  }
+  // set logic for which type of transaction to be displayed
+  async function decision() {
+    console.log("from chain is", chain);
+    console.log("destination chain is:", destinationChain)
+    if (chain === destinationChain && address && amount && SelectedToken && destinationAddress) {
+      let finalAmount: string = (Number((amount) * getExponent(SelectedToken, chain))).toString();
+      console.log("amount", finalAmount)
+      console.log('inside normal send');
+      connectWallet();
+      const simulateClient = await getSigningStargateClient();
+      const sendResponse = await Send(destinationAddress, finalAmount, SelectedToken, address, chain, simulateClient);
 
-              
-              formatOptionLabel={(option) => (
-                <div className=" flex flex-row">
-                  <div>{option.label}</div>
-                  <div className="ml-2">
-                    <img
-                      src={option.logoUrl}
-                      alt={option.label}
-                      height="20"
-                      width="20"
+
+      const response = await signAndBroadcast(sendResponse.msg, sendResponse.fee, sendResponse.memo, sendResponse.client);
+      if (!response) {
+        console.log("step 3")
+        alert("Transaction Failed please try again");
+      }
+      if (response) {
+        alert(response.transactionHash);
+        if (response.code === 0) {
+          alert("Transaction Successful");
+        }
+      }
+
+    } else {
+      setShowPopover(!showPopover);
+      setOutputArray([]);
+    }
+  }
+  return (
+    <section className="dashboard">
+      <div className="normal">
+        <div className="toggle">
+          <button className="toggleActive">Normal</button>
+          <button className="toggleInactive"><a href='./Pro'>Advanced</a></button>
+        </div>
+        <div className="swapCard">
+          <h4>IBC Transfer</h4>
+          <div className="networkAssetGroup">
+            <div className="networks">
+              <p className="paragraphMediumRegular">Networks</p>
+              <div className="cardTransferGroup">
+                <button className="cardTransfer">
+                  <div className="crypto">
+                    <Select
+                      placeholder="Cosmos Hub" // Placeholder value here
+                      value={options.find((c) => c.value === chain)}
+                      options={options}
+                      formatOptionLabel={(option) => (
+                        <div className="flex flex-row">
+                          <div>{option.label}</div>
+                          <div className="ml-2">
+                            <img
+                              src={option.logoUrl}
+                              alt={option.label}
+                              height="20"
+                              width="20"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      onChange={handleOriginChange}
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          backgroundColor: "white",
+                          borderColor: "black",
+                          borderRadius: "10px",
+                        }),
+                      }}
                     />
                   </div>
+                  {chain ? (
+                    <div>
+                      <div className="flex justify-center">
+                        <h1 className="text-2xl font-bold text-black">
+                          {address?.slice(0, 8)}...{address?.slice(-9)}
+                        </h1>
+                      </div>
+                    </div>
+                  ) : (
+                    <h1></h1>
+                  )}{" "}
+                  <div className="dropdownIcon">
+                    <i className="fa-solid fa-chevron-down"></i>
+                  </div>
+                </button>
+                <button className="transferIcon">
+                  <i className="fa-solid fa-arrow-right-arrow-left"></i>
+                </button>
+                <button className="cardTransfer">
+                  <div className="crypto">
+                    <Select
+                      options={options}
+                      placeholder="Cosmos Hub" // Placeholder value here
+                      value={options.find((c) => c.value === destinationChain)}
+                      formatOptionLabel={(option) => (
+                        <div className="flex flex-row">
+                          <div>{option.label}</div>
+                          <div className="ml-2">
+                            <img
+                              src={option.logoUrl}
+                              alt={option.label}
+                              height="20"
+                              width="20"
+                            />
+                          </div>
+                        </div>
+                      )}
+                      onChange={handleDestinationChange}
+                      styles={{
+                        control: (provided) => ({
+                          ...provided,
+                          backgroundColor: "white",
+                          borderColor: "black",
+                          borderRadius: "10px",
+                        }),
+                      }}
+                    />
+                  </div>
+                  {destinationChain ? (
+                    <div className="flex justify-center">
+                      <input
+                        type="text"
+                        className="text-2xl font-bold"
+                        style={{ backgroundColor: 'black', color: 'white' }}
+                        value={`${destinationAddress?.slice(0, 10)}...${destinationAddress?.slice(-10)}`}
+                        onChange={(e) => setDestinationAddress(e.target.value)}
+                      />
+                    </div>
+                  ) : (
+                    <h1>{"  "}</h1>
+                  )}
+                </button>
+              </div>
+            </div>
+            <div className="asset">
+              <Select
+                placeholder="Select asset" // Placeholder value here
+                options={data.map((entry) => ({
+                  label: getDenom(entry.denom, chain)?.symbol,
+                  value: entry.denom,
+                }))}
+                formatOptionLabel={(option) => (
+                  <div className="flex flex-row items-center">
+                    <div>{option.label}</div>
+                    <div className="ml-2">
+                      <img
+                        src={getDenom(option?.value, chain)?.svg}
+                        height="20"
+                        width="20"
+                      />
+                    </div>
+                    <div className="ml-2">{renderFunds(option?.value, chain)}</div>
+                  </div>
+                )}
+                onChange={(option) => option && setSelectedToken(option.value)}
+                styles={{
+                  control: (provided) => ({
+                    ...provided,
+                    backgroundColor: "white",
+                    borderColor: "black",
+                    borderRadius: "10px",
+                  }),
+                }}
+              />
+              <div className="cardAssetBalance">
+                <div className="cardAssetGroup">
+                  <div className="assetNumber">
+                    {SelectedToken ? (
+                      <input
+                        type="number"
+                        placeholder={Number(renderData()).toFixed(3)}
+                        min={0.0}
+                        name={"amount"}
+                        step="0.001"
+                        onChange={(e) => setAmount(parseFloat(e.target.value))}
+                      />
+                    ) : <input type="number" name="" id="" placeholder="0" />}
+                  </div>
                 </div>
-              )}
-              onChange={handleOriginChange}
-              styles={{
-                control: (provided) => ({
-                  ...provided,
-                  backgroundColor: "white",
-                  borderColor: "black",
-                  borderRadius: "10px",
-                }),
-              }}
-            />
-          </div>
-          <div style={{ flex: "calc(1/2 * 100%)" }}></div>
-          <div className="flex items-center rounded-10px">
-            {chain ? (
-              <div>
-                <div className="flex justify-center">
-                  <h1 className="text-2xl font-bold text-white">
-                    {address?.slice(0, 4)}...{address?.slice(-5)}
-                  </h1>
+                <div className="balance">
+                  <p className="paragraphMediumRegular">{Number(renderData()).toFixed(3)}</p>
                 </div>
               </div>
-            ) : (
-              <h1></h1>
-            )}{" "}
+            </div>
           </div>
+          <button className="primaryBtn">
+            Send
+          </button>
         </div>
-        {/* inner division top left end */}
-        {/* inner division bottom left */}
-        <div
-  id="innerDiv3"
-  className="flex flex-col items-center justify-center h-2/3 w-full rounded-2xl p-5"
->
-  <h1 className="text-2xl font-bold text-white mb-4">Asset to send</h1>
-  {data.length === 0 ? (
-    <p className="text-white">Fetching assets...</p>
-  ) : ( 
-    <div style={{ width: "200px" }}>
-    <Select 
-    
-      placeholder ="Select asset" // Placeholder value here
-      style={{ width: "200px" }}
-      options={data.map((entry) => ({
-        label: getDenom(entry.denom, chain)?.symbol,
-        value: entry.denom,
-      }))}
-      formatOptionLabel={(option) => (
-        <div className="w-200px flex flex-row">
-          <div>{option.label}</div>
-          <div className="ml-2">
-            <img
-              src={getDenom(option?.value, chain)?.svg}
-              height="20"
-              width="20"
-              
-            />
-          </div>
-        </div>
-      )}
-      onChange={(option) => option && setSelectedToken(option.value)}
-      styles={{
-        control: (provided) => ({
-          ...provided,
-          backgroundColor: "white",
-          borderColor: "black",
-          borderRadius: "10px",
-        }),
-      }}
-    />
-    </div>
-  )}
-  {SelectedToken ? (
-    <div className="width-200px items-center mt-4">
-      <input
-        className="text-indigo-300 width-200px rounded-2xl "
-        type="number"
-        placeholder={Number(renderData()).toFixed(3)}
-        min={0.0}
-        name={"amount"}
-        step="0.001"
-        onChange={(e) => setAmount(parseFloat(e.target.value))}
-        style={{ width: "200px" }}
-      />
-    </div>
-  ) : null}
-  <button
-    className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mt-4"
-    onClick={() => setShowPopover(!showPopover)}
-  >
-    Send
-  </button>
-</div>
 
-        {/* inner division bottom left end */}
+        <div className="colorMode">
+        </div>
       </div>
-      {/* left division end */}
-      {/* right division */}
-      <div className="flex flex-col items-center justify-center w-1/2  rounded-2xl">
-        {/* inner division top right */}
-        <div
-          id="innerDiv2"
-          className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl "
-        >
-          <h1
-            className="flex-auto font-bold text-white"
-            style={{ marginTop: "calc(1/6 * 100%)" }}
-          >
-            Destination Chain
-          </h1>
-          <div style={{ width: "200px" }}>
-            <Select
-              options={options}
-              formatOptionLabel={(option) => (
-                <div className ="flex flex-row">
-                  <div>{option.label}</div>
-                  <div className="ml-2">
-                    <img
-                      src={option.logoUrl}
-                      alt={option.label}
-                      height="20"
-                      width="20"
-                    />
-                  </div>
-                </div>
-              )}
-              onChange={(newValue, actionMeta) => {
-                setDestination(newValue?.value ?? ""); // provide a default value if newValue?.value is undefined
-              }}
-              styles={{
-                control: (provided) => ({
-                  ...provided,
-                  backgroundColor: "white",
-                  borderColor: "black",
-                  borderRadius: "10px",
-                }),
-              }}
-            />
-          </div>
-          <div style={{ flex: "calc(1/2 * 100%)" }}></div>
-          <div className="flex items-center rounded-10px"><h1></h1>
-          </div>
-        </div>
-        {/* inner division top right end */}
-        {/* inner division bottom right */}
-        <div
-  id="innerDiv4"
-  className="flex flex-col items-center justify-center h-1/2 w-full rounded-2xl overflow-hidden " // Tailwind classes
->
-  <div>
-    {paths.map((path, index) => (
-      <div key={index} className="flex items-center justify-between w-full mr-12 ml-(-4) mb-2 mt-2"> 
-        <img
-          src={chainInfo(path.chainFrom)?.logo_URIs?.svg || chainInfo(path.chainFrom)?.logo_URIs?.png}
-          alt={path.chainFrom}
-          className="mr-2" // Tailwind class for margin-right
-          style={{ width: '12%', height: 'auto' }} // Inline CSS for image size
-        />
-        <div className="relative flex-1 flex justify-center"> 
-          <img
-            src="https://cdn.pixabay.com/photo/2015/10/14/18/44/arrow-988169_1280.png"
-            alt="arrow"
-            className="arrow-animation absolute top-1/2 transform -translate-y-1/2 z-10" // Tailwind classes
-            style={{ width: '30%', height: 'auto' }} // Inline CSS for image size
-          />
-        </div>
-        <img
-          src={chainInfo(path.counterpartyChain)?.logo_URIs?.svg || chainInfo(path.counterpartyChain)?.logo_URIs?.png || chainInfo(path.destinationChain)?.logo_URIs?.svg || chainInfo(path.destinationChain)?.logo_URIs?.png}
-          alt={chainInfo(path.destinationChain)?.logo_URIs?.svg || chainInfo(path.destinationChain)?.logo_URIs?.png}
-          className="ml-2" // Tailwind class for margin-left
-          style={{ width: '12%', height: 'auto' }} // Inline CSS for image size
-        />
-      </div>
-    ))}
-  </div>
-</div>
-
-        {/* inner division bottom right end */}
-      </div>
-      {/* right division end */}
-    </div>
-    {/* normal division end */}
-    {/* popover start */}
-    <div className="parentDivision rounded-2xl flex flex-row"
-      style={{ width: "100%", height: "100%" }}>
-    {showPopover && (
-    <div className="parentDivision rounded-2xl flex-center fixed inset-0 backdrop-blur-md"
-    style={{ width: "100%", height: "100%" }}>
-      <div className="flex justify-center items-center h-screen  ">
-      <div className="relative w-2/5 h-3/5 rounded-2xl  flex flex-col items-center bg-black"> 
-      {/* Your popover items go here */}
-      {paths.map((path, index) => (
-    <div key={index} className="popover-item m-2 border-2 border-grey-500" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div className="flex items-center justify-center">
-            <img
-                src={chainInfo(path.chainFrom)?.logo_URIs?.svg || chainInfo(path.chainFrom)?.logo_URIs?.png}
-                alt={path.chainFrom}
-                className="mr-2"
-                style={{ width: '12%', height: 'auto' }}
-            />
-            <div className="relative flex-1 flex justify-center"> 
-          <img
-            src="https://cdn.pixabay.com/photo/2015/10/14/18/44/arrow-988169_1280.png"
-            alt="arrow"
-            className="arrow-animation absolute top-1/2 transform -translate-y-1/2 z-10" // Tailwind classes
-            style={{ width: '30%', height: 'auto' }} // Inline CSS for image size
-          />
-        </div>
-            <img
-                src={chainInfo(path.counterpartyChain)?.logo_URIs?.svg || chainInfo(path.counterpartyChain)?.logo_URIs?.png || chainInfo(path.destinationChain)?.logo_URIs?.svg || chainInfo(path.destinationChain)?.logo_URIs?.png}
-                alt={path.chainFrom}
-                className="ml-2"
-                style={{ width: '12%', height: 'auto' }}
-            />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-            <input className="bg-black text-white" type="text" value={path.from} readOnly style={{ fontSize: '10px', width: '100%', border: '1px solid black'  }} />
-            <input className="bg-black text-white" type="text" value={path.toAddress} readOnly style={{ fontSize: '10px', width: '100%', border: '1px solid black'  }} />
-        </div>
-        <input className="bg-black text-white" type="text" placeholder="hash" value={filterHash(path.chainFrom)} readOnly style={{ width: '100%', fontSize: '12px' }} />
-        <button
-            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mt-4"
-            onClick={() => inciatransaction(path)}
-        >
-            send From: {path.chainFrom}
-        </button>
-    </div>
-))}
-      <button
-        className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full mt-4"
-        onClick={() => {
-          setShowPopover(!showPopover);
-          setOutputArray([]);
-          // Call another function here
-        }}
-      >
-        Done
-      </button>
-    </div>
-    </div>
-    </div>
-  
-  )}
-</div>
- 
-    {/* popover end */}
-    </div>
-    // main division end
-    
+    </section>
   );
 }
+
+export default Normal;
