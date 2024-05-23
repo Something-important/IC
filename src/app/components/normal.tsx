@@ -411,7 +411,7 @@ const Normal: React.FC = () => {
               </div>
             </div>
           </div>
-          <button className="primaryBtn">
+          <button className="primaryBtn" onClick={decision}>
             Send
           </button>
         </div>
@@ -419,6 +419,65 @@ const Normal: React.FC = () => {
         <div className="colorMode">
         </div>
       </div>
+      {/* popover start */}
+      <div className="parentDivision rounded-2xl flex flex-row"
+                style={{ width: "100%", height: "100%" }}>
+                {showPopover && (
+                    <div className="parentDivision rounded-2xl flex-center fixed inset-0 backdrop-blur-md"
+                        style={{ width: "100%", height: "100%" }}>
+                        <div className="flex justify-center items-center h-screen  ">
+                            <div className="relative w-2/5 h-3/5 rounded-2xl  flex flex-col items-center bg-black">
+                                {/* Your popover items go here */}
+                                {paths.map((path, index) => (
+                                    <div key={index} className="popover-item m-2 border-2 border-grey-500" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <div className="flex items-center justify-center">
+                                            <img
+                                                src={chainInfo(path.chainFrom)?.logo_URIs?.svg || chainInfo(path.chainFrom)?.logo_URIs?.png}
+                                                alt={path.chainFrom}
+                                                className="mr-2"
+                                                style={{ width: '12%', height: 'auto' }}
+                                            />
+                                            <div className="relative flex-1 flex justify-center">
+                                                <img
+                                                    src="https://cdn.pixabay.com/photo/2015/10/14/18/44/arrow-988169_1280.png"
+                                                    alt="arrow"
+                                                    className="arrow-animation absolute top-1/2 transform -translate-y-1/2 z-10" // Tailwind classes
+                                                    style={{ width: '30%', height: 'auto' }} // Inline CSS for image size
+                                                />
+                                            </div>
+                                            <img
+                                                src={chainInfo(path.counterpartyChain)?.logo_URIs?.svg || chainInfo(path.counterpartyChain)?.logo_URIs?.png || chainInfo(path.destinationChain)?.logo_URIs?.svg || chainInfo(path.destinationChain)?.logo_URIs?.png}
+                                                alt={path.chainFrom}
+                                                className="ml-2"
+                                                style={{ width: '12%', height: 'auto' }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                                            <input className="bg-black text-white" type="text" value={path.from} readOnly style={{ fontSize: '10px', width: '100%', border: '1px solid black' }} />
+                                            <input className="bg-black text-white" type="text" value={path.destinationAddress || path.toAddress} readOnly style={{ fontSize: '10px', width: '100%', border: '1px solid black' }} />
+                                        </div>
+                                        <input className="bg-black text-white" type="text" placeholder="hash" value={filterHash(path.chainFrom)} readOnly style={{ width: '100%', fontSize: '12px' }} />
+                                        <button
+                                            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full mt-4"
+                                            onClick={() => inciatransaction(path)}
+                                        >
+                                            send From: {path.chainFrom}
+                                        </button>
+                                    </div>
+                                ))}
+                                <button
+                                    className="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-full mt-4"
+                                    onClick={decision}
+                                >
+                                    Done
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                )}
+            </div>
+            {/* popover end */}
     </section>
   );
 }
