@@ -1,5 +1,4 @@
 'use client'
-import Normal from "./components/normal";
 import { useState, useEffect } from 'react';
 import { Providers } from "./providers";
 
@@ -27,7 +26,7 @@ export default function  RootLayout({
 
   return (
     <html lang="en">
-      <body data-theme={theme}>
+    <body data-theme={theme}>
     
     <div className={`app ${theme}`}>
       <button onClick={switchTheme}>
