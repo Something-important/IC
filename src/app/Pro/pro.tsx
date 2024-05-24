@@ -25,7 +25,6 @@ interface OptionType {
   label: string;
   logoUrl: string;
 }
-import Image from "next/image";
 import { options } from "../components/chains";
 import "@interchain-ui/react/styles";
 export default function Pro() {
@@ -195,7 +194,7 @@ export default function Pro() {
               <Select
                 placeholder="Cosmos Hub"
                 options={options}
-                formatOptionLabel={(option) => (
+                formatOptionLabel={(option: any) => (
                   <div className="flex flex-row">
                     <div>{option.label}</div>
                     <div className="ml-2">
@@ -210,7 +209,7 @@ export default function Pro() {
                 )}
                 onChange={handleOriginChange}
                 styles={{
-                  control: (provided) => ({
+                  control: (provided: any) => ({
                     ...provided,
                     backgroundColor: "white",
                     borderColor: "black",
@@ -246,7 +245,7 @@ export default function Pro() {
                     label: getDenom(entry.denom, chain)?.symbol,
                     value: entry.denom,
                   }))}
-                  formatOptionLabel={(option) => (
+                  formatOptionLabel={(option: any) => (
                     <div className="w-200px flex flex-row">
                       <div className="ml-2 flex flex-row">
                         <img
@@ -259,9 +258,9 @@ export default function Pro() {
                       </div>
                     </div>
                   )}
-                  onChange={(option) => option && setSelectedToken(option.value)}
+                  onChange={(option: any) => option && setSelectedToken(option.value)}
                   styles={{
-                    control: (provided) => ({
+                    control: (provided: any) => ({
                       ...provided,
                       backgroundColor: "white",
                       borderColor: "black",
