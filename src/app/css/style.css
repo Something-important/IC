@@ -210,14 +210,10 @@ p {
 
 .cardTransfer {
     display: flex;
-    padding: 16px;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
     align-self: stretch;
     border-radius: 8px;
-    background: var(--White, #FFF);
-    width: 100%;
     border: none;
     cursor: pointer;
 }
